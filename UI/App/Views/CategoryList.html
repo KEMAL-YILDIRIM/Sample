@@ -1,0 +1,17 @@
+﻿
+<div class="table-responsive">
+    <table class="table table-striped table-bordered">
+        <tr>
+            <th>Category Id</th>
+            <th>Category Name</th>
+            <th>Order</th>
+            <th>Is Active</th>
+        </tr>
+        <tr ng-repeat="item in ListOfCategory">
+            <td>{{ item.CategoryID }}</td>
+            <td>{{ item.CategoryName }}</td>
+            <td>{{ item.Order }}</td>
+            <td>{{ item.IsActive }}</td>
+        </tr>
+    </table>
+</div>
