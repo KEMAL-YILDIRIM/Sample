@@ -1,25 +1,29 @@
-﻿using DryIoc;
+﻿using BLL;
+using DryIoc;
 using ORM;
 using Repository;
 using System;
 using System.Collections.Generic;
+using System.Data.Entity;
 using System.Linq;
 using System.Web;
 
-namespace UI
+public class DIRegistrations
 {
-    public class DIRegistrations
+
+    public static Container container;
+
+    public static void RegisterDependencies()
     {
-        public static void RegisterDependencies()
-        {
-            Container container = new Container(rules =>
-            rules.WithoutThrowOnRegisteringDisposableTransient().
-            WithTrackingDisposableTransients().
-            WithDefaultReuseInsteadOfTransient(Reuse.InWebRequest)
-            );
-            container.UseInstance(new EF_DbContext());
-            container.Register<IUnitOfWork, UnitOfWork>(Reuse.Singleton);
-            container.Register(typeof(IRepository<>), typeof(GenericRepository<>));
-        }
+
+        container = container ?? new Container(rules => rules.WithoutThrowOnRegisteringDisposableTransient());
+
+        container.UseInstance<DbContext>(new EF_DbContext());
+        container.Register(typeof(IRepository<>), typeof(GenericRepository<>));
+        container.Register<IUnitOfWork, UnitOfWork>(Reuse.Singleton);
+
+        DIContainerRepository.RegisterTypes(container);
+        DIContainerBLL.RegisterTypes(container);
     }
+
 }

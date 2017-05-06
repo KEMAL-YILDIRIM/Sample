@@ -12,16 +12,16 @@ namespace Repository
     public class UnitOfWork : IUnitOfWork
     {
 
-        internal readonly DbContext _context;
+        internal readonly DbContext context;
 
-        public UnitOfWork(DbContext context)
+        public UnitOfWork(DbContext _context)
         {
-            _context = context;
+            context = _context;
         }
 
-        public IRepository<TEntity> Repository<TEntity>() where TEntity : class
+        public IRepository<TEntity> GetRepository<TEntity>() where TEntity : class
         {
-            using (var container = new Container())
+            using (var container = DIContainerRepository.GetContainer())
             {
                 var _repository = container.Resolve<IRepository<TEntity>>();
                 return _repository;
@@ -30,13 +30,13 @@ namespace Repository
 
         public void Commit()
         {
-            _context.SaveChanges();
+            context.SaveChanges();
         }
 
 
         public void Rollback()
         {
-            _context
+            context
                 .ChangeTracker
                 .Entries()
                 .ToList()
@@ -51,7 +51,7 @@ namespace Repository
             {
                 if (disposing)
                 {
-                    _context.Dispose();
+                    context.Dispose();
                 }
             }
             this.disposed = true;

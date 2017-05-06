@@ -4,6 +4,7 @@ using ORM;
 using Repository;
 using System;
 using System.Collections.Generic;
+using System.Data.Entity;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -15,13 +16,13 @@ namespace BLL
 
         private static IRepository<Products> PrdctRepos()
         {
-            var prdct = UoW().Repository<Products>();
+            var prdct = UoW().GetRepository<Products>();
             return prdct;
         }
 
         private static IUnitOfWork UoW()
         {
-            var container = new Container();
+            var container = DIContainerBLL.GetContainer();
             var uow = container.Resolve<IUnitOfWork>();
             return uow;
         }

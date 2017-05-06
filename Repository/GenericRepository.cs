@@ -13,9 +13,9 @@ namespace Repository
         internal DbContext context;
         internal DbSet<TEntity> dbSet;
 
-        public GenericRepository(DbContext context)
+        public GenericRepository(DbContext _context)
         {
-            this.context = context;
+            this.context = _context;
             this.dbSet = context.Set<TEntity>();
         }
 

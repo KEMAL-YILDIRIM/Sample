@@ -198,6 +198,10 @@
     <Folder Include="Models\" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\BLL\BLL.csproj">
+      <Project>{DCA82F84-EC32-4D44-B7B9-DFDE1530FE91}</Project>
+      <Name>BLL</Name>
+    </ProjectReference>
     <ProjectReference Include="..\DIContainer\DIContainer.csproj">
       <Project>{13A9A573-E476-4043-93F1-4DF2144C3B71}</Project>
       <Name>DIContainer</Name>
@@ -227,8 +231,6 @@
           <DevelopmentServerPort>50456</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
           <IISUrl>http://localhost:55048</IISUrl>
-          <OverrideIISAppRootUrl>True</OverrideIISAppRootUrl>
-          <IISAppRootUrl>http://localhost:55048/UI</IISAppRootUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>http://localhost:55048/</CustomServerUrl>

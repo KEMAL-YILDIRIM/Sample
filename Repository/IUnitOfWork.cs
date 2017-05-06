@@ -6,7 +6,7 @@ namespace Repository
     {
         void Commit();
         void Dispose();
-        IRepository<TEntity> Repository<TEntity>() where TEntity : class;
+        IRepository<TEntity> GetRepository<TEntity>() where TEntity : class;
         void Rollback();
     }
 }
