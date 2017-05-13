@@ -170,7 +170,6 @@
     <Compile Include="App_Start\FilterConfig.cs" />
     <Compile Include="App_Start\RouteConfig.cs" />
     <Compile Include="Controllers\HomeController.cs" />
-    <Compile Include="App_Start\DIRegistrations.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
@@ -201,10 +200,6 @@
     <ProjectReference Include="..\BLL\BLL.csproj">
       <Project>{DCA82F84-EC32-4D44-B7B9-DFDE1530FE91}</Project>
       <Name>BLL</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\DIContainer\DIContainer.csproj">
-      <Project>{13A9A573-E476-4043-93F1-4DF2144C3B71}</Project>
-      <Name>DIContainer</Name>
     </ProjectReference>
     <ProjectReference Include="..\ORM\ORM.csproj">
       <Project>{4CE27A2C-E679-4962-ADD1-7DF36730F8FB}</Project>

@@ -16,9 +16,6 @@ namespace UI
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             FilterConfig.RegisterGlobalFilters(GlobalFilters.Filters);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
-
-
-            DIRegistrations.RegisterDependencies();
         }
     }
 }

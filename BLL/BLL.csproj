@@ -44,16 +44,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DIContainerBLL.cs" />
+    <Compile Include="IEntityLogic.cs" />
+    <Compile Include="IProductLogic.cs" />
     <Compile Include="Models\ProductViewModel.cs" />
     <Compile Include="ProductLogic.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\DIContainer\DIContainer.csproj">
-      <Project>{13A9A573-E476-4043-93F1-4DF2144C3B71}</Project>
-      <Name>DIContainer</Name>
-    </ProjectReference>
     <ProjectReference Include="..\ORM\ORM.csproj">
       <Project>{4CE27A2C-E679-4962-ADD1-7DF36730F8FB}</Project>
       <Name>ORM</Name>

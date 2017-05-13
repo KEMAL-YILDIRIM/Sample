@@ -1,5 +1,4 @@
 ﻿using BLL.Models;
-using DryIoc;
 using ORM;
 using Repository;
 using System;
@@ -11,23 +10,23 @@ using System.Threading.Tasks;
 
 namespace BLL
 {
-    public class ProductLogic
+    public class ProductLogic : IProductLogic
     {
 
-        private static IRepository<Products> PrdctRepos()
+        private IUnitOfWork UnitOfWork;
+
+        public ProductLogic(IUnitOfWork _UoW)
         {
-            var prdct = UoW().GetRepository<Products>();
+            UnitOfWork = _UoW;
+        }
+
+        public virtual IRepository<Products> ProductRepository()
+        {
+            var prdct = UnitOfWork.GetRepository<Products>();
             return prdct;
         }
 
-        private static IUnitOfWork UoW()
-        {
-            var container = DIContainerBLL.GetContainer();
-            var uow = container.Resolve<IUnitOfWork>();
-            return uow;
-        }
-
-        public static ProductViewModel ToModel(Products data)
+        public virtual ProductViewModel ToModel(Products data)
         {
             ProductViewModel product = new ProductViewModel();
             product.Name = data.ProductName;
@@ -36,7 +35,7 @@ namespace BLL
             return product;
         }
 
-        public static Products ToEntity(ProductViewModel model)
+        public virtual Products ToEntity(ProductViewModel model)
         {
             Products prdct = new Products();
             prdct.ProductName = model.Name;
@@ -45,9 +44,9 @@ namespace BLL
             return prdct;
         }
 
-        public static IEnumerable<ProductViewModel> List()
+        public virtual IEnumerable<ProductViewModel> List()
         {
-            var data = PrdctRepos().GetAll().ToList().OrderBy(x => x.ProductName);
+            var data = ProductRepository().GetAll().ToList().OrderBy(x => x.ProductName);
             var result = data.Select(x => new ProductViewModel()
             {
                 Name = x.ProductName,
@@ -57,26 +56,26 @@ namespace BLL
             return result.ToList();
         }
 
-        public static Products Find(int id)
+        public virtual Products Find(int id)
         {
-            return PrdctRepos().GetByID(id);
+            return ProductRepository().GetByID(id);
         }
 
-        public static void Insert(ProductViewModel model)
+        public virtual void Insert(ProductViewModel model)
         {
-            PrdctRepos().Insert(ToEntity(model));
-            UoW().Commit();
+            ProductRepository().Insert(ToEntity(model));
+            UnitOfWork.Commit();
         }
-        public static void Update(ProductViewModel model)
+        public virtual void Update(ProductViewModel model)
         {
-            PrdctRepos().Update(ToEntity(model));
-            UoW().Commit();
+            ProductRepository().Update(ToEntity(model));
+            UnitOfWork.Commit();
         }
 
-        public static void Delete(int id)
+        public virtual void Delete(int id)
         {
-            PrdctRepos().Delete(Find(id));
-            UoW().Commit();
+            ProductRepository().Delete(Find(id));
+            UnitOfWork.Commit();
         }
     }
 }

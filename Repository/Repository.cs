@@ -8,12 +8,12 @@ using System.Threading.Tasks;
 
 namespace Repository
 {
-    public class GenericRepository<TEntity> : IRepository<TEntity> where TEntity : class
+    public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
     {
         internal DbContext context;
         internal DbSet<TEntity> dbSet;
 
-        public GenericRepository(DbContext _context)
+        public Repository(DbContext _context)
         {
             this.context = _context;
             this.dbSet = context.Set<TEntity>();

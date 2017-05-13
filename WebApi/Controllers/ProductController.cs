@@ -12,11 +12,17 @@ namespace WebApi.Controllers
     public class ProductController : ApiController
     {
 
+        private IProductLogic productLogic;
+        public ProductController(IProductLogic _productLogic)
+        {
+            productLogic = _productLogic;
+        }
+
         //Get All Products
         [HttpGet]
         public IEnumerable<ProductViewModel> GetAllProducts()
         {
-            return ProductLogic.List();
+            return productLogic.List();
         }
 
 
@@ -24,10 +30,10 @@ namespace WebApi.Controllers
         [HttpGet]
         public ProductViewModel GetProduct(int id)
         {
-            var data = ProductLogic.Find(id);
+            var data = productLogic.Find(id);
             if (data != null)
             {
-                return ProductLogic.ToModel(data);
+                return productLogic.ToModel(data);
             }
             else
             {
@@ -44,7 +50,7 @@ namespace WebApi.Controllers
             {
                 if (ModelState.IsValid)
                 {
-                    ProductLogic.Insert(model);
+                    productLogic.Insert(model);
                     return Request.CreateResponse(HttpStatusCode.Created, "Kayit Basarili");
                 }
                 else
@@ -68,7 +74,7 @@ namespace WebApi.Controllers
             {
                 if (ModelState.IsValid)
                 {
-                    ProductLogic.Update(model);
+                    productLogic.Update(model);
                     return Request.CreateResponse(HttpStatusCode.Created, "Kayit Basarili");
                 }
                 else
@@ -89,10 +95,10 @@ namespace WebApi.Controllers
         public HttpResponseMessage DeleteProduct(int id)
         {
 
-            if (ProductLogic.Find(id) != null)
+            if (productLogic.Find(id) != null)
             {
-                ProductLogic.Delete(id);
-                return Request.CreateResponse(HttpStatusCode.OK, ProductLogic.Find(id));
+                productLogic.Delete(id);
+                return Request.CreateResponse(HttpStatusCode.OK, productLogic.Find(id));
             }
             else
             {
