@@ -49,6 +49,7 @@ namespace BLL
             var data = ProductRepository().GetAll().ToList().OrderBy(x => x.ProductName);
             var result = data.Select(x => new ProductViewModel()
             {
+                ID = x.ProductID,
                 Name = x.ProductName,
                 Stock = x.UnitsInStock,
                 Price = x.UnitPrice

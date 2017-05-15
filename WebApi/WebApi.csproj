@@ -43,6 +43,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="EntityFramework">
+      <HintPath>..\UI\bin\EntityFramework.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.AI.Agent.Intercept, Version=2.0.6.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.ApplicationInsights.Agent.Intercept.2.0.6\lib\net45\Microsoft.AI.Agent.Intercept.dll</HintPath>
       <Private>True</Private>
@@ -141,9 +144,17 @@
       <Project>{DCA82F84-EC32-4D44-B7B9-DFDE1530FE91}</Project>
       <Name>BLL</Name>
     </ProjectReference>
+    <ProjectReference Include="..\DiContainer\DiContainer.csproj">
+      <Project>{99F047B0-23CC-402D-90B9-3663DC42435E}</Project>
+      <Name>DiContainer</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ORM\ORM.csproj">
-      <Project>{4ce27a2c-e679-4962-add1-7df36730f8fb}</Project>
+      <Project>{4CE27A2C-E679-4962-ADD1-7DF36730F8FB}</Project>
       <Name>ORM</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Repository\Repository.csproj">
+      <Project>{F3174F68-1C17-4323-A3D7-7F0A23A9DD11}</Project>
+      <Name>Repository</Name>
     </ProjectReference>
   </ItemGroup>
   <PropertyGroup>

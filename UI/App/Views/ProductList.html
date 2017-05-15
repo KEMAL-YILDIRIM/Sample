@@ -16,15 +16,15 @@
             <th>Delete</th>
         </tr>
         <tr ng-repeat="item in ListOfProduct">
-            <td>{{ item.ProductID }}</td>
-            <td>{{ item.ProductName }}</td>
-            <td>{{ item.UnitInStock }}</td>
+            <td>{{ item.ID }}</td>
+            <td>{{ item.Name }}</td>
+            <td>{{ item.Stock }}</td>
             <td>{{ item.Price }}</td>
             <td>
-                <a class="btn btn-primary btn-xs" href="#/EditProduct/{{item.ProductID}}"><span class="glyphicon glyphicon-pencil"></span></a>
+                <a class="btn btn-primary btn-xs" href="#/EditProduct/{{item.ID}}"><span class="glyphicon glyphicon-pencil"></span></a>
             </td>
             <td>
-                <a class="btn btn-danger btn-xs" href="#/DeleteProduct/{{item.ProductID}}"><span class="glyphicon glyphicon-trash"></span></a>
+                <a class="btn btn-danger btn-xs" href="#/DeleteProduct/{{item.ID}}"><span class="glyphicon glyphicon-trash"></span></a>
             </td>
         </tr>
     </table>

@@ -49,6 +49,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Dependencies.cs" />
     <Compile Include="Repository.cs" />
     <Compile Include="IRepository.cs" />
     <Compile Include="IUnitOfWork.cs" />
@@ -60,6 +61,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\DiContainer\DiContainer.csproj">
+      <Project>{99F047B0-23CC-402D-90B9-3663DC42435E}</Project>
+      <Name>DiContainer</Name>
+    </ProjectReference>
     <ProjectReference Include="..\ORM\ORM.csproj">
       <Project>{4CE27A2C-E679-4962-ADD1-7DF36730F8FB}</Project>
       <Name>ORM</Name>

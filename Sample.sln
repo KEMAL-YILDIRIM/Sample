@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BLL", "BLL\BLL.csproj", "{D
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApi", "WebApi\WebApi.csproj", "{994E704A-2DDB-4644-A2DB-AAFA924F8383}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiContainer", "DiContainer\DiContainer.csproj", "{99F047B0-23CC-402D-90B9-3663DC42435E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{994E704A-2DDB-4644-A2DB-AAFA924F8383}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{994E704A-2DDB-4644-A2DB-AAFA924F8383}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{994E704A-2DDB-4644-A2DB-AAFA924F8383}.Release|Any CPU.Build.0 = Release|Any CPU
+		{99F047B0-23CC-402D-90B9-3663DC42435E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{99F047B0-23CC-402D-90B9-3663DC42435E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{99F047B0-23CC-402D-90B9-3663DC42435E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{99F047B0-23CC-402D-90B9-3663DC42435E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

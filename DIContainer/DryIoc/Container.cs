@@ -68,7 +68,14 @@ namespace DryIoc
                 ? "ambiently scoped container with scope " + scope
                 : "scoped container with scope " + scope;
             if (IsDisposed)
-                scopeStr = "disposed " + scopeStr + Environment.NewLine + _disposeStackTrace;
+            {
+                scopeStr = "disposed " + scopeStr + Environment.NewLine;
+                if (_disposeStackTrace != null)
+                    scopeStr += "Dispose stack-trace " + _disposeStackTrace;
+                else
+                    scopeStr += "You may include Dispose stack-trace into the message via:" + Environment.NewLine
+                        + "container.With(rules => rules.WithCaptureContainerDisposeStackTrace())";
+            }
             return scopeStr;
         }
 
@@ -84,7 +91,7 @@ namespace DryIoc
             var registryWithoutCache = Ref.Of(_registry.Value.WithoutCache());
             return new Container(rules, registryWithoutCache, 
                 _singletonScope, scopeContext, _openedScope, 
-                _disposed, _disposeStackTrace, RootContainer);
+                _disposed, _disposeStackTrace, _resolverContext._rootContainer);
         }
 
         /// <summary>Produces new container which prevents any further registrations.</summary>
@@ -96,7 +103,7 @@ namespace DryIoc
             var readonlyRegistry = Ref.Of(_registry.Value.WithNoMoreRegistrationAllowed(ignoreInsteadOfThrow));
             return new Container(Rules, readonlyRegistry, 
                 _singletonScope, _scopeContext, _openedScope, 
-                _disposed, _disposeStackTrace, RootContainer);
+                _disposed, _disposeStackTrace, _resolverContext._rootContainer);
         }
 
         /// <summary>Returns new container with all expression, delegate, items cache removed/reset.
@@ -108,7 +115,7 @@ namespace DryIoc
             var registryWithoutCache = Ref.Of(_registry.Value.WithoutCache());
             return new Container(Rules, registryWithoutCache, 
                 _singletonScope, _scopeContext, _openedScope, 
-                _disposed, _disposeStackTrace, RootContainer);
+                _disposed, _disposeStackTrace, _resolverContext._rootContainer);
         }
 
         /// <summary>Creates new container with state shared with original except singletons and cache.
@@ -121,7 +128,7 @@ namespace DryIoc
             var newSingletons = new SingletonScope();
             return new Container(Rules, registryWithoutCache, 
                 newSingletons, _scopeContext, _openedScope, 
-                _disposed, _disposeStackTrace, RootContainer);
+                _disposed, _disposeStackTrace, _resolverContext._rootContainer);
         }
 
         /// <summary>Shares all parts with original container But copies registration, so the new registration
@@ -134,7 +141,7 @@ namespace DryIoc
             var newRegistry = preserveCache ? _registry.NewRef() : Ref.Of(_registry.Value.WithoutCache());
             return new Container(Rules, newRegistry, 
                 _singletonScope, _scopeContext, _openedScope, 
-                _disposed, _disposeStackTrace, RootContainer);
+                _disposed, _disposeStackTrace, _resolverContext._rootContainer);
         }
 
         /// <summary>Returns ambient scope context associated with container.</summary>
@@ -174,7 +181,7 @@ namespace DryIoc
 
             return new Container(rules, _registry, 
                 _singletonScope, _scopeContext, nestedOpenedScope, 
-                _disposed, _disposeStackTrace, RootContainer ?? this);
+                _disposed, _disposeStackTrace, _resolverContext._rootContainer ?? this);
         }
 
         /// <summary>The default name of root scope without ambient context.</summary>
@@ -206,10 +213,10 @@ namespace DryIoc
             var registry = _registry.Value;
 
             var clearedServices = registry.ClearCache(serviceType, serviceKey, FactoryType.Service);
-            var clearWrapper = registry.ClearCache(serviceType, serviceKey, FactoryType.Wrapper);
-            var clearDecorator = registry.ClearCache(serviceType, serviceKey, FactoryType.Decorator);
+            var clearedWrapper = registry.ClearCache(serviceType, serviceKey, FactoryType.Wrapper);
+            var clearedDecorator = registry.ClearCache(serviceType, serviceKey, FactoryType.Decorator);
 
-            return clearedServices || clearWrapper || clearDecorator;
+            return clearedServices || clearedWrapper || clearedDecorator;
         }
 
         /// <summary>Dispose either open scope, or container with singletons, if no scope opened.</summary>
@@ -218,43 +225,45 @@ namespace DryIoc
             if (Interlocked.CompareExchange(ref _disposed, 1, 0) != 0)
                 return;
 
-            // nice to have but we can leave without it if failed
-            try { _disposeStackTrace = new StackTrace(); } catch { }
+            // nice to have, but we can leave without it if something goes wrong
+            if (Rules.CaptureContainerDisposeStackTrace)
+                try { _disposeStackTrace = new StackTrace(); } catch { }
 
-            // for container created with OpenScope
-            if (_openedScope != null &&
-                !(Rules.ImplicitOpenedRootScope && _openedScope.Parent == null && _scopeContext == null))
+            // for container created with OpenScope, 
+            // BUT not WithImplicitOpenedRootScope rules
+            var isScopedContainer = _resolverContext._rootContainer != null;
+
+            // remove reference to context container(s) to prevent memory leak
+            _resolverContext = null;
+
+            if (isScopedContainer)
             {
-                if (_openedScope != null)
-                {
-                    _openedScope.Dispose();
-
-                    if (_scopeContext != null)
-                        _scopeContext.SetCurrent(scope => scope == _openedScope ? scope.Parent : scope);
-                }
+                if (_scopeContext != null)
+                    _scopeContext.SetCurrent(scope =>
+                    {
+                        if (scope == _openedScope)
+                            return scope.Parent;
+                        return scope;
+                    });
             }
             else // whole Container with singletons.
             {
-                if (_openedScope != null)
-                    _openedScope.Dispose();
-
-                if (_scopeContext != null)
-                    _scopeContext.Dispose();
+                _defaultFactoryDelegateCache = Ref.Of(ImMap<Type, FactoryDelegate>.Empty);
+                _registry.Swap(Registry.Empty);
+                Rules = Rules.Default;
 
                 _singletonScope.Dispose();
 
-                _registry.Swap(Registry.Empty);
-                _defaultFactoryDelegateCache = Ref.Of(ImMap<Type, FactoryDelegate>.Empty);
-
-                Rules = Rules.Default;
+                if (_scopeContext != null)
+                    _scopeContext.Dispose();
             }
+
+            if (_openedScope != null)
+                _openedScope.Dispose();
         }
 
         /// <summary>Scope containing container singletons.</summary>
         public IScope SingletonScope { get { return _singletonScope; } }
-
-        /// <summary>Returns root for scoped container or null for root itself.</summary>
-        public readonly Container RootContainer;
 
         #region Static state
 
@@ -549,37 +558,14 @@ namespace DryIoc
 
         #endregion
 
-        #region Direct Container Resolve methods to avoid interface dispatch
-
-        /// <summary>Returns instance of <typepsaramref name="TService"/> type.</summary>
-        /// <typeparam name="TService">The type of the requested service.</typeparam>
-        /// <returns>The requested service instance.</returns>
-        public TService Resolve<TService>()
-        {
-            return (TService)Resolve(typeof(TService));
-        }
-
-        /// <summary>Resolves default (non-keyed) service from container and returns created service object.</summary>
-        /// <param name="serviceType">Service type to search and to return.</param>
-        /// <returns>The requested service instance.</returns>
-        public object Resolve(Type serviceType)
-        {
-            var factoryDelegate = _defaultFactoryDelegateCache.Value.GetValueOrDefault(serviceType);
-            return factoryDelegate != null
-                ? factoryDelegate(null, _resolverContext, null)
-                : ResolveAndCacheDefaultDelegate(serviceType, false, null);
-        }
-            
-        #endregion
-
         #region IResolver
 
         object IResolver.Resolve(Type serviceType, bool ifUnresolvedReturnDefault)
         {
             var factoryDelegate = _defaultFactoryDelegateCache.Value.GetValueOrDefault(serviceType);
-            return factoryDelegate != null
-                ? factoryDelegate(null, _resolverContext, null)
-                : ResolveAndCacheDefaultDelegate(serviceType, ifUnresolvedReturnDefault, null);
+            if (factoryDelegate != null)
+                return factoryDelegate(null, _resolverContext, null);
+            return ResolveAndCacheDefaultDelegate(serviceType, ifUnresolvedReturnDefault);
         }
 
         object IResolver.Resolve(Type serviceType, object serviceKey, bool ifUnresolvedReturnDefault, Type requiredServiceType, RequestInfo preResolveParent,
@@ -655,24 +641,24 @@ namespace DryIoc
             return service;
         }
 
-        private object ResolveAndCacheDefaultDelegate(Type serviceType, bool ifUnresolvedReturnDefault, IScope scope)
+        private object ResolveAndCacheDefaultDelegate(Type serviceType, bool ifUnresolvedReturnDefault)
         {
             ThrowIfContainerDisposed();
 
             var ifUnresolved = ifUnresolvedReturnDefault ? IfUnresolved.ReturnDefault : IfUnresolved.Throw;
-            var request = Request.Create(this, serviceType, ifUnresolved: ifUnresolved, scope: scope);
+            var request = Request.Create(this, serviceType, ifUnresolved: ifUnresolved);
             var factory = ((IContainer)this).ResolveFactory(request); // HACK: may mutate request, but it should be safe
 
             // The situation is possible for multiple default services registered.
             if (request.ServiceKey != null)
-                return ((IResolver)this).Resolve(serviceType, request.ServiceKey, ifUnresolvedReturnDefault, null, null, scope);
+                return ((IResolver)this).Resolve(serviceType, request.ServiceKey, ifUnresolvedReturnDefault, null, null, null);
 
             var factoryDelegate = factory == null ? null : factory.GetDelegateOrDefault(request);
             if (factoryDelegate == null)
                 return null;
 
             var registryValue = _registry.Value;
-            var service = factoryDelegate(null, _resolverContext, scope);
+            var service = factoryDelegate(null, _resolverContext, null);
 
             // Additionally disable caching when:
             // no services registered, so the service probably empty collection wrapper or alike.
@@ -1550,12 +1536,12 @@ namespace DryIoc
         private readonly Ref<Registry> _registry;
         private Ref<ImMap<Type, FactoryDelegate>> _defaultFactoryDelegateCache;
 
-        private readonly ContainerWeakRef _resolverContext;
-
         private readonly SingletonScope _singletonScope;
 
         internal readonly IScope _openedScope;
         private readonly IScopeContext _scopeContext;
+
+        private ContainerWeakRef _resolverContext; // mutable in order the reference to be removed on Dispose
 
         internal void UseInstanceInternal(Type serviceType, object instance, object serviceKey)
         {
@@ -2211,7 +2197,7 @@ namespace DryIoc
         }
 
         private Container(Rules rules, Ref<Registry> registry, SingletonScope singletonScope,
-            IScopeContext scopeContext = null, IScope openedScope = null, 
+            IScopeContext scopeContext = null, IScope openedScope = null,
             int disposed = 0, StackTrace disposeStackTrace = null,
             Container rootContainer = null)
         {
@@ -2229,18 +2215,18 @@ namespace DryIoc
 
             if (openedScope != null)
                 _openedScope = openedScope;
-            else if (scopeContext == null && rules.ImplicitOpenedRootScope) // only valid for non ambient context
+
+            // creating scope in a root container (its own root is null) is valid only for non-ambient scopes
+            else if (rules.ImplicitOpenedRootScope && rootContainer == null && scopeContext == null)
                 _openedScope = new Scope(null, NonAmbientRootScopeName);
 
-            _resolverContext = new ContainerWeakRef(this, useStrongReference: true);
-            
-            RootContainer = rootContainer;
+            _resolverContext = new ContainerWeakRef(this, rootContainer);
         }
 
         #endregion
     }
 
-    /// <summary>Convenient methods that require container.</summary>
+    /// <summary>Container extended features.</summary>
     public static class ContainerTools
     {
         /// <summary>For given instance resolves and sets properties and fields.
@@ -2633,7 +2619,7 @@ namespace DryIoc
         }
     }
 
-    /// <summary>Holds all required info by <see cref="FactoryDelegate"/>.</summary>
+    /// <summary>Provides access to Container for compiled factory delegate.</summary>
     public interface IResolverContext
     {
         /// <summary>Provides access to current / scoped resolver.</summary>
@@ -2643,86 +2629,69 @@ namespace DryIoc
         IScopeAccess Scopes { get; }
     }
 
-    /// <summary>Provides the shortcuts and sugar based onto <see cref="IResolverContext"/> 
-    /// to be consumed in <see cref="FactoryDelegate"/></summary>
+    // todo: v3: Remove dependency on  ContainerWeakRef impl. of IResolver context.
+    /// <summary>Provides the shortcuts to <see cref="IResolverContext"/></summary>
     public static class ResolverContext
     {
         /// <summary>Returns subj.</summary>
         /// <param name="ctx"></param> <returns></returns>
         public static IResolver RootResolver(this IResolverContext ctx)
         {
-            return ctx.RootContainer();
+            return ((ContainerWeakRef)ctx).RootContainerOrSelf();
         }
 
         /// <summary>Returns subj.</summary>
         /// <param name="ctx"></param> <returns></returns>
         public static IScopeAccess RootScopes(this IResolverContext ctx)
         {
-            return ctx.RootContainer();
+            return ((ContainerWeakRef)ctx).RootContainerOrSelf();
         }
 
         /// <summary>Returns subj.</summary>
         /// <param name="ctx"></param> <returns></returns>
         public static IScope SingletonScope(this IResolverContext ctx)
         {
-            return ctx.RootContainer().SingletonScope;
-        }
-
-        private static Container RootContainer(this IResolverContext ctx)
-        {
-            var containerRef = ((ContainerWeakRef)ctx);
-            return containerRef.GetTarget(maybeDisposed: true).RootContainer 
-                ?? containerRef.GetTarget();
+            return ((ContainerWeakRef)ctx).RootContainerOrSelf().SingletonScope;
         }
     }
 
-    /// <summary>Wraps access to <see cref="Container"/> WeakReference target with DryIoc specific exceptions.</summary>
+    /// <summary>Provides access to Container from compiled factory delegate.</summary>
     public sealed class ContainerWeakRef : IResolverContext
     {
         /// <summary>Provides access to current / scoped resolver.</summary>
-        public IResolver Resolver { get { return GetTarget(); } }
+        public IResolver Resolver { get { return EnsureNotDisposed(_container); } }
 
         /// <summary>Access to the singleton and current scopes.</summary>
-        public IScopeAccess Scopes { get { return GetTarget(); } }
+        public IScopeAccess Scopes { get { return EnsureNotDisposed(_container); } }
 
         /// <summary>Container access.</summary>
-        public IContainer Container { get { return GetTarget(); } }
+        public IContainer Container { get { return EnsureNotDisposed(_container); } }
 
-        /// <summary>Returns target container when it is not null and not disposed. Otherwise throws exception.</summary>
-        /// <param name="maybeDisposed">(optional) If set will return even disposed container.</param>
-        /// <returns>Target container.</returns>
-        public Container GetTarget(bool maybeDisposed = false)
+        /// <summary>Returns root container (the same as container if its already the root). 
+        /// Throws exception if root is disposed.</summary> 
+        /// <returns>Subj.</returns>
+        public Container RootContainerOrSelf()
         {
-            var container = _container;
-            if (container != null)
-                return (maybeDisposed || !container.IsDisposed) ? container 
-                    : Throw.For<Container>(Error.ContainerIsDisposed, container);
-            return GetWeakTarget(maybeDisposed);
-        }
-
-        private Container GetWeakTarget(bool maybeDisposed)
-        {
-            var container = _weakRef.Target as Container;
-            return container != null && (maybeDisposed || !container.IsDisposed)
-                ? container
-                : container == null
-                    ? Throw.For<Container>(Error.ContainerIsGarbageCollected)
-                    : Throw.For<Container>(Error.ContainerIsDisposed, container);
+            return EnsureNotDisposed(_rootContainer ?? _container);
         }
 
         /// <summary>Creates weak reference wrapper over passed container object.</summary> 
         /// <param name="container">Container to reference.</param>
-        /// <param name="useStrongReference">(optional) Allows to use string reference instead of weak one.</param>
-        public ContainerWeakRef(Container container, bool useStrongReference = false)
+        /// <param name="rootContainer">(optional) Root container - the same as <paramref name="container"/> for root container.</param>
+        public ContainerWeakRef(Container container, Container rootContainer)
         {
-            if (useStrongReference)
-                _container = container;
-            else
-                _weakRef =  new WeakReference(container);
+            _container = container;
+            _rootContainer = rootContainer;
         }
 
-        private readonly WeakReference _weakRef;
-        private readonly Container _container;
+        internal readonly Container _container;
+        internal readonly Container _rootContainer;
+
+        internal Container EnsureNotDisposed(Container container)
+        {
+            return !container.IsDisposed ? container
+                : Throw.For<Container>(Error.ContainerIsDisposed, container);
+        }
     }
 
     /// <summary>The delegate type which is actually used to create service instance by container.
@@ -2786,6 +2755,7 @@ namespace DryIoc
             return genericDefinition != null && FuncTypes.Contains(genericDefinition);
         }
 
+        // todo: v3: remove as not used
         /// <summary>Returns true if type is func with 1 or more input arguments.</summary>
         /// <param name="type">Type to check.</param><returns>True for func type, false otherwise.</returns>
         public static bool IsFuncWithArgs(this Type type)
@@ -2841,13 +2811,19 @@ namespace DryIoc
 
         private static ImTreeMap<Type, Factory> AddContainerInterfacesAndDisposableScope(ImTreeMap<Type, Factory> wrappers)
         {
+            // Using @preventDisposal to not apply tracking disposable transient
+            var asContainerWrapper = Setup.WrapperWith(preventDisposal: true);
+
             wrappers = wrappers.AddOrUpdate(typeof(IResolver),
-                new ExpressionFactory(Container.GetResolverExpr, setup: Setup.Wrapper));
+                new ExpressionFactory(Container.GetResolverExpr, 
+                Reuse.Transient,
+                setup: asContainerWrapper));
 
             // todo: replace convert with exposed Container property on ResolverContext.
             var containerFactory = new ExpressionFactory(r =>
                 Expression.Convert(Container.GetResolverExpr(r), r.ServiceType),
-                setup: Setup.Wrapper);
+                Reuse.Transient,
+                setup: asContainerWrapper);
 
             wrappers = wrappers
                 .AddOrUpdate(typeof(IRegistrator), containerFactory)
@@ -3717,6 +3693,21 @@ namespace DryIoc
             return newRules;
         }
 
+        /// <summary><see cref="WithCaptureContainerDisposeStackTrace"/>.</summary>
+        public bool CaptureContainerDisposeStackTrace
+        {
+            get { return (_settings & Settings.CaptureContainerDisposeStackTrace) != 0; }
+        }
+
+        /// <summary>Instructs to capture Dispose stack-trace to include it later into <see cref="Error.ContainerIsDisposed"/>
+        /// exception for easy diagnostics.</summary> <returns>New rules with option set.</returns>
+        public Rules WithCaptureContainerDisposeStackTrace()
+        {
+            var newRules = (Rules)MemberwiseClone();
+            newRules._settings |= Settings.CaptureContainerDisposeStackTrace;
+            return newRules;
+        }
+
         #region Implementation
 
         private Rules()
@@ -3740,11 +3731,12 @@ namespace DryIoc
             ResolveIEnumerableAsLazyEnumerable = 1 << 6,
             EagerCachingSingletonForFasterAccess = 1 << 7,
             ImplicitRootOpenScope = 1 << 8,
-            ThrowIfRuntimeStateRequired = 1 << 9
+            ThrowIfRuntimeStateRequired = 1 << 9,
+            CaptureContainerDisposeStackTrace = 1 << 10
         }
 
-        private const Settings DEFAULT_SETTINGS =
-            Settings.ThrowIfDependencyHasShorterReuseLifespan
+        private const Settings DEFAULT_SETTINGS 
+            = Settings.ThrowIfDependencyHasShorterReuseLifespan
             | Settings.ThrowOnRegisteringDisposableTransient
             | Settings.ImplicitCheckForReuseMatchingScope
             | Settings.VariantGenericTypesInResolvedCollection
@@ -6290,15 +6282,15 @@ namespace DryIoc
                 Rules.ThrowIfDependencyHasShorterReuseLifespan)
                 ThrowIfReuseHasShorterLifespanThanParent(reuse);
 
-            if (reuse == DryIoc.Reuse.Transient)
+            if (reuse == DryIoc.Reuse.Singleton)
+                flags |= RequestFlags.IsSingletonOrDependencyOfSingleton;
+            // check for disposable transient
+            else if (reuse == DryIoc.Reuse.Transient)
             {
                 reuse = GetTransientDisposableTrackingReuse(factory);
                 if (reuse != DryIoc.Reuse.Transient)
                     flags |= RequestFlags.TracksTransientDisposable;
             }
-
-            if (reuse == DryIoc.Reuse.Singleton)
-                flags |= RequestFlags.IsSingletonOrDependencyOfSingleton;
 
             _requestContext.IncrementDependencyCount();
             return new Request(_requestContext, RawParent, _serviceInfo, factory, reuse, FuncArgs, flags);
@@ -6343,8 +6335,8 @@ namespace DryIoc
             if (IsWrappedInFunc())
                 return DryIoc.Reuse.Transient;
 
-            // If no reused parent, then track in current open scope, or if not opened in singleton
-            return Scopes.GetCurrentScope() != null ? DryIoc.Reuse.InCurrentScope : DryIoc.Reuse.Singleton;
+            // If no parent with reuse found, then track in current open scope or in singletons scope
+            return DryIoc.Reuse.ScopedOrSingleton;
         }
 
         private void ThrowIfReuseHasShorterLifespanThanParent(IReuse reuse)
@@ -8668,18 +8660,21 @@ namespace DryIoc
         /// <returns>Already mapped index, or newly created.</returns>
         public int GetScopedItemIdOrSelf(int externalId)
         {
-            var index = _factoryIdToIndexMap.GetValueOrDefault(externalId);
-            if (index != null)
-                return (int)index;
+            return (int)(_factoryIdToIndexMap.GetValueOrDefault(externalId) ?? MapExternalId(externalId));
+        }
 
+        private object MapExternalId(int externalId)
+        {
+            object index = null;
             Ref.Swap(ref _factoryIdToIndexMap, map =>
             {
                 index = map.GetValueOrDefault(externalId);
-                return index != null ? map
-                    : map.AddOrUpdate(externalId, index = Interlocked.Increment(ref _lastItemIndex));
+                return index == null 
+                    ? map.AddOrUpdate(externalId, index = Interlocked.Increment(ref _lastItemIndex))
+                    : map;
             });
 
-            return (int)index;
+            return index;
         }
 
         /// <summary><see cref="IScope.GetOrAdd"/> for description.
@@ -8950,30 +8945,13 @@ namespace DryIoc
         /// <summary>Relative to other reuses lifespan value.</summary>
         public int Lifespan { get { return 1000; } }
 
-        /// <summary>Returns item from singleton scope.</summary>
-        /// <param name="singletonScope">Singleton scope.</param>
-        /// <param name="trackTransientDisposable">Indicates that item should be tracked instead of reused.</param>
-        /// <param name="factoryId">ID for lookup.</param>
-        /// <param name="createValue">Delegate for creating the item.</param>
-        /// <returns>Reused item.</returns>
-        public static object GetOrAddItem(IScope singletonScope, bool trackTransientDisposable, int factoryId,
-            CreateScopedValue createValue)
-        {
-            var scopedItemId = trackTransientDisposable ? -1 : singletonScope.GetScopedItemIdOrSelf(factoryId);
-            return singletonScope.GetOrAdd(scopedItemId, createValue);
-        }
-
-        private static readonly MethodInfo _getOrAddItemMethod =
-            typeof(SingletonReuse).GetSingleMethodOrNull("GetOrAddItem");
-
-        /// <summary>Returns expression call to <see cref="GetOrAddItem"/>.</summary>
+        /// <summary>Returns expression call to GetOrAddItem.</summary>
         public Expression Apply(Request request, bool trackTransientDisposable, Expression createItemExpr)
         {
-            return Expression.Call(_getOrAddItemMethod,
-                Container.SingletonScopeExpr,
-                Expression.Constant(trackTransientDisposable),
-                Expression.Constant(request.FactoryID),
-                Expression.Lambda<CreateScopedValue>(createItemExpr));
+            var itemId = trackTransientDisposable ? -1 
+                : request.SingletonScope.GetScopedItemIdOrSelf(request.FactoryID);
+            return Expression.Call(Container.SingletonScopeExpr, "GetOrAdd", ArrayTools.Empty<Type>(),
+                Expression.Constant(itemId), Expression.Lambda<CreateScopedValue>(createItemExpr));
         }
 
         /// <summary>Returns true because singleton is always available.</summary>
@@ -9030,6 +9008,7 @@ namespace DryIoc
     /// <remarks>It is the same as Singleton scope if container was not created by <see cref="Container.OpenScope"/>.</remarks>
     public sealed class CurrentScopeReuse : IReuse, IReuseV3
     {
+        // todo: v3: move to IReuse interface + plus add ability to be an array of names
         /// <summary>Name to find current scope or parent with equal name.</summary>
         public readonly object Name;
 
@@ -9043,42 +9022,63 @@ namespace DryIoc
             Name = name;
         }
 
-        /// <summary>Returns item from current scope with specified name.</summary>
-        /// <param name="containerScopes">Container scopes to select from.</param>
-        /// <param name="scopeName">scope name to look up.</param>
-        /// <param name="throwIfNoScopeFound">Specifies to throw if scope with the <paramref name="scopeName"/> is not found.</param>
-        /// <param name="trackTransientDisposable"></param>
-        /// <param name="factoryId">ID for lookup.</param>
-        /// <param name="createValue">Delegate for creating the item.</param>
-        /// <returns>Reused item.</returns>
-        public static object GetOrAddItemOrDefault(
-            IScopeAccess containerScopes, object scopeName, bool throwIfNoScopeFound,
-            bool trackTransientDisposable, int factoryId, CreateScopedValue createValue)
+        internal bool ScopedOrSingleton;
+        internal CurrentScopeReuse(bool scopedOrSingleton)
         {
-            var scope = containerScopes.GetCurrentNamedScope(scopeName, throwIfNoScopeFound);
-            if (scope == null)
-                return null;
-            var scopedItemId = trackTransientDisposable ? -1 : scope.GetScopedItemIdOrSelf(factoryId);
-            return scope.GetOrAdd(scopedItemId, createValue);
+            ScopedOrSingleton = scopedOrSingleton;
         }
 
-        private static readonly MethodInfo _getOrAddItemOrDefaultMethod =
+        internal static object GetScopedOrSingleton(IScopeAccess scopes, IScope singleton,
+            int itemId, CreateScopedValue createValue)
+        {
+            var scope = scopes.GetCurrentNamedScope(null, throwIfNotFound: false);
+            if (scope != null)
+                return scope.GetOrAdd(itemId, createValue);
+            var singetonId = itemId == -1 ? -1 : singleton.GetScopedItemIdOrSelf(itemId);
+            return singleton.GetOrAdd(singetonId, createValue);
+        }
+
+        private static readonly MethodInfo _getScopedOrSingletonMethod =
+            typeof(CurrentScopeReuse).GetSingleMethodOrNull("GetScopedOrSingleton", includeNonPublic: true);
+
+        /// <summary>Returns item from current scope with specified name.</summary>
+        /// <param name="scopes">Container scopes to select from.</param>
+        /// <param name="scopeName">scope name to look up.</param>
+        /// <param name="throwIfNoScopeFound">Specifies to throw if scope with the <paramref name="scopeName"/> is not found.</param>
+        /// <param name="itemId">Scoped item ID for lookup.</param>
+        /// <param name="createValue">Delegate for creating the item.</param>
+        /// <returns>Reused item.</returns>
+        public static object GetOrAddItemOrDefault(IScopeAccess scopes, object scopeName, 
+            bool throwIfNoScopeFound, int itemId, CreateScopedValue createValue)
+        {
+            var scope = scopes.GetCurrentNamedScope(scopeName, throwIfNoScopeFound);
+            return scope == null ? null : scope.GetOrAdd(itemId, createValue);
+        }
+
+        private static readonly MethodInfo _getOrAddOrDefaultMethod =
             typeof(CurrentScopeReuse).GetSingleMethodOrNull("GetOrAddItemOrDefault");
 
         /// <summary>Returns expression call to <see cref="GetOrAddItemOrDefault"/>.</summary>
         public Expression Apply(Request request, bool trackTransientDisposable, Expression createItemExpr)
         {
+            var scopesExpr = Container.GetScopesExpr(request);
+            var itemId = trackTransientDisposable ? -1 : request.FactoryID;
+
+            if (ScopedOrSingleton)
+                return Expression.Call(_getScopedOrSingletonMethod,
+                    scopesExpr, Container.SingletonScopeExpr,
+                    Expression.Constant(itemId),
+                    Expression.Lambda<CreateScopedValue>(createItemExpr));
+
+            // todo: add the ValueType check to GetOrAddStateItemExpression
             var scopeNameExpr = request.Container.GetOrAddStateItemExpression(Name);
             if (Name != null && Name.GetType().IsValueType())
                 scopeNameExpr = Expression.Convert(scopeNameExpr, typeof(object));
 
-            var scopesExpr = Container.GetScopesExpr(request);
-
-            return Expression.Call(_getOrAddItemOrDefaultMethod,
+            return Expression.Call(_getOrAddOrDefaultMethod, 
                 scopesExpr, scopeNameExpr,
-                Expression.Constant(request.IfUnresolved == IfUnresolved.Throw),
-                Expression.Constant(trackTransientDisposable),
-                Expression.Constant(request.FactoryID),
+                Expression.Constant(request.IfUnresolved == IfUnresolved.Throw), 
+                Expression.Constant(itemId),
                 Expression.Lambda<CreateScopedValue>(createItemExpr));
         }
 
@@ -9086,22 +9086,28 @@ namespace DryIoc
         /// <param name="request">Service request.</param> <returns>Check result.</returns>
         public bool CanApply(Request request)
         {
-            return // first is the special case whith ambient scope context, 
-                   // where scope can be switched for already resolved singleton. 
-                   // So it may be no valid initially but only afterwars
-                (request.Container.ScopeContext != null && request.IsWrappedInFunc()) ||
+            if (ScopedOrSingleton)
+                return true;
+
+            // A special case whith ambient scope context, 
+            // where scope can be switched for already resolved singleton. 
+            // So it may be no valid initially but only afterwars
+            return (request.Container.ScopeContext != null && request.IsWrappedInFunc()) ||
                 request.Scopes.GetCurrentNamedScope(Name, false) != null;
         }
 
         private readonly Lazy<Expression> _inCurrentScopeReuseExpr = new Lazy<Expression>(() =>
             Expression.Field(null, typeof(Reuse).GetFieldOrNull("InCurrentScope")));
 
+        private readonly Lazy<Expression> _scopedOrSingletonExpr = new Lazy<Expression>(() =>
+            Expression.Field(null, typeof(Reuse).GetFieldOrNull("ScopedOrSingleton")));
+
         /// <inheritdoc />
         public Expression ToExpression(Func<object, Expression> fallbackConverter)
         {
-            return Name == null ? _inCurrentScopeReuseExpr.Value
-                : Expression.Call(typeof(Reuse), "InCurrentNamedScope", ArrayTools.Empty<Type>(),
-                    fallbackConverter(Name));
+            return Name == null && !ScopedOrSingleton ? _inCurrentScopeReuseExpr.Value
+                : ScopedOrSingleton ? _scopedOrSingletonExpr.Value
+                : Expression.Call(typeof(Reuse), "InCurrentNamedScope", ArrayTools.Empty<Type>(), fallbackConverter(Name));
         }
 
         #region Obsolete
@@ -9271,6 +9277,10 @@ namespace DryIoc
 
         /// <summary>Specifies to store single service instance per current/open scope created with <see cref="Container.OpenScope"/>.</summary>
         public static readonly IReuse InCurrentScope = new CurrentScopeReuse();
+
+        /// <summary>The same as <see cref="InCurrentScope"/> but if no open scope available will fallback to <see cref="Reuse.Singleton"/></summary>
+        /// <remarks>The <see cref="Error.DependencyHasShorterReuseLifespan"/> is applied the same way as for <see cref="InCurrentScope"/> reuse.</remarks>
+        public static readonly IReuse ScopedOrSingleton = new CurrentScopeReuse(scopedOrSingleton: true);
 
         /// <summary>Returns current scope reuse with specific name to match with scope.
         /// If name is not specified then function returns <see cref="InCurrentScope"/>.</summary>
@@ -9825,6 +9835,7 @@ namespace DryIoc
         void Unregister(Type serviceType, object serviceKey, FactoryType factoryType, Func<Factory, bool> condition);
     }
 
+    // todo: v3: Replace with the single Scope and move the rest to extension methods.
     /// <summary>Provides access to scopes.</summary>
     public interface IScopeAccess
     {
@@ -10205,8 +10216,6 @@ namespace DryIoc
                 "Factory instance provided {0} But factory method is static {1} when resolving: {2}."),
             GotNullConstructorFromFactoryMethod = Of(
                 "Got null constructor when resolving {0}"),
-            ContainerIsGarbageCollected = Of(
-                "Container is no longer available (has been garbage-collected)."),
             UnableToRegisterDuplicateDefault = Of(
                 "Service {0} without key is already registered as {1}."),
             UnableToRegisterDuplicateKey = Of(

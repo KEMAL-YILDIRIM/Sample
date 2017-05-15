@@ -77,7 +77,7 @@ namespace ORM
             modelBuilder.Entity<Products>()
                 .HasMany(e => e.Order_Details)
                 .WithRequired(e => e.Products)
-                .WillCascadeOnDelete(false);
+                .WillCascadeOnDelete(true);
 
             modelBuilder.Entity<Region>()
                 .Property(e => e.RegionDescription)
