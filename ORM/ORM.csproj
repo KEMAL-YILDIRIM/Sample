@@ -57,6 +57,15 @@
     <Compile Include="EF_DbContext.cs" />
     <Compile Include="Employees.cs" />
     <Compile Include="IEF_DbContext.cs" />
+    <Compile Include="Migrations\201705150745103_InitialCreate.cs" />
+    <Compile Include="Migrations\201705150745103_InitialCreate.Designer.cs">
+      <DependentUpon>201705150745103_InitialCreate.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201705150749454_v1.cs" />
+    <Compile Include="Migrations\201705150749454_v1.Designer.cs">
+      <DependentUpon>201705150749454_v1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Orders.cs" />
     <Compile Include="Order_Details.cs" />
     <Compile Include="Products.cs" />
@@ -70,6 +79,14 @@
   <ItemGroup>
     <None Include="App.config" />
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\201705150745103_InitialCreate.resx">
+      <DependentUpon>201705150745103_InitialCreate.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201705150749454_v1.resx">
+      <DependentUpon>201705150749454_v1.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
