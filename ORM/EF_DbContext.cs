@@ -68,7 +68,7 @@ namespace ORM
             modelBuilder.Entity<Orders>()
                 .HasMany(e => e.Order_Details)
                 .WithRequired(e => e.Orders)
-                .WillCascadeOnDelete(false);
+                .WillCascadeOnDelete(true);
 
             modelBuilder.Entity<Products>()
                 .Property(e => e.UnitPrice)
@@ -86,7 +86,7 @@ namespace ORM
             modelBuilder.Entity<Region>()
                 .HasMany(e => e.Territories)
                 .WithRequired(e => e.Region)
-                .WillCascadeOnDelete(false);
+                .WillCascadeOnDelete(true);
 
             modelBuilder.Entity<Shippers>()
                 .HasMany(e => e.Orders)
