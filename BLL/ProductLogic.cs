@@ -37,7 +37,7 @@ namespace BLL
 
         public virtual Products ToEntity(ProductViewModel model)
         {
-            Products prdct = new Products();
+            Products prdct = Find(model.ID) ?? new Products();
             prdct.ProductName = model.Name;
             prdct.UnitsInStock = model.Stock;
             prdct.UnitPrice = model.Price;
@@ -69,6 +69,7 @@ namespace BLL
         }
         public virtual void Update(ProductViewModel model)
         {
+            var _product = Find(model.ID);
             ProductRepository().Update(ToEntity(model));
             UnitOfWork.Commit();
         }

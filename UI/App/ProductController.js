@@ -48,7 +48,7 @@
                     .success(function (data) {
                         $scope.ProductName = data.Name;
                         $scope.UnitInStock = data.Stock;
-                        $scope.ProductID = data.ID;
+                        $scope.ProductID = $scope.Id;
                         $scope.Price = data.Price;
                     });
 
